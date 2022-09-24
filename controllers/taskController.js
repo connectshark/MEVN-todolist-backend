@@ -14,12 +14,12 @@ const getAllTasks = async ( req, res ) => {
 }
 
 const createTask = async ( req, res ) => {
-  const { content } = req.body
-  if (!content) {
+  const { content, id: owner } = req.body
+  if (!content || !owner) {
     return res.status(400).json({ message: 'All fields are required' })
   }
 
-  const task = await Task.create({ content })
+  const task = await Task.create({ owner, content })
 
   if (task) {
     res.status(201).json({ message: `New task ${content} created` })

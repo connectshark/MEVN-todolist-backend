@@ -1,9 +1,14 @@
 const mongoose = require('mongoose')
 
-const userSchema = new mongoose.Schema({
+const taskSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true
+  },
+  owner: {
+    type: mongoose.SchemaTypes.ObjectId,
+    required: true,
+    ref: 'User'
   },
   created_at: {
     type: Date,
@@ -16,9 +21,9 @@ const userSchema = new mongoose.Schema({
   }
 })
 
-userSchema.pre('save', function (next) {
+taskSchema.pre('save', function (next) {
   this.update_at = Date.now()
   next()
 })
 
-module.exports = mongoose.model('User', userSchema)
+module.exports = mongoose.model('Task', taskSchema)

@@ -23,6 +23,8 @@ app.use(cookieParser())
 
 app.use('/', require('./routes/rootRoute'))
 app.use('/task', require('./routes/taskRoute'))
+app.use('/user', require('./routes/userRoute'))
+app.use('/admin', require('./routes/adminRoute'))
 app.get('/healthz', (req, res) => {
   res.status(200).send('ok')
 })
