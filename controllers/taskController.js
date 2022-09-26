@@ -8,7 +8,7 @@ const Task = require('../models/Task')
 const getAllTasks = async ( req, res ) => {
   const tasks = await Task.find().lean()
   if (!tasks?.length) {
-    return res.status(400).json({ message: 'No users found' })
+    return res.status(400).json({ message: 'No tasks found' })
   }
   res.json(tasks)
 }
@@ -24,7 +24,7 @@ const createTask = async ( req, res ) => {
   if (task) {
     res.status(201).json({ message: `New task ${content} created` })
   } else {
-    res.status(400).json({ message: 'Invalid user data received' })
+    res.status(400).json({ message: 'Invalid task data received' })
   }
 }
 
@@ -34,13 +34,13 @@ const createTask = async ( req, res ) => {
  * @access Private
  */
 const updateTask = async ( req, res ) => {
-  const { id, content } = req.body
+  const { owner, content, id } = req.body
 
-  if (!id || !content) {
+  if (!id || !content || !owner) {
     return res.status(400).json({ message: 'All fields are required' })
   }
 
-  const task = await Task.findById(id).exec()
+  const task = await Task.findById(id).where({ owner: owner }).exec()
 
   if (!task) {
     return res.status(400).json({ message: 'Task not found' })
@@ -75,10 +75,25 @@ const deleteTask = async ( req, res ) => {
   res.json({ message: reply })
 }
 
+/**
+ * @desc Get all users
+ * @route GET /users
+ * @access Private
+ */
+const getTasks = async ( req, res ) => {
+  const { id } = req.params
+  const tasks = await Task.find({ owner: id }).lean()
+  if (!tasks?.length) {
+    return res.status(400).json({ message: 'No tasks found' })
+  }
+  res.json(tasks)
+}
+
 
 module.exports = {
   getAllTasks,
   updateTask,
   createTask,
-  deleteTask
+  deleteTask,
+  getTasks
 }

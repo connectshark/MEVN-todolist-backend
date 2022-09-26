@@ -1,17 +1,18 @@
 const User = require('../models/User')
+const Task = require('../models/Task')
 
 /**
  * @desc Get all users
- * @route GET /users
+ * @route GET /user/:id
  * @access Private
  */
 const getUser = async ( req, res ) => {
-  const { id } = req.body
+  const { id } = req.params
   if (!id) {
     return res.status(400).json({ message: 'All fields are required' })
   }
-  const user = await User.findById({ id }).lean()
-  if (!user?.length) {
+  const user = await User.findById({ _id: id }).lean()
+  if (!user?.username) {
     return res.status(400).json({ message: 'No user found' })
   }
   res.json(user)
@@ -53,7 +54,7 @@ const updateUser = async ( req, res ) => {
   const user = await User.findById(id).exec()
 
   if (!user) {
-    return res.status(400).json({ message: 'Task not found' })
+    return res.status(400).json({ message: 'User not found' })
   }
 
   user.username = username
@@ -74,6 +75,10 @@ const deleteUser = async ( req, res ) => {
   if (!id) {
     return res.status(400).json({ message: 'Task ID Required' })
   }
+  const task = await Task.findOne({ owner: id }).lean().exec()
+  if (task) {
+    return res.status(400).json({ message: `User has assigned task` })
+  }
 
   const user = await User.findById(id).exec()
 
@@ -85,10 +90,23 @@ const deleteUser = async ( req, res ) => {
   res.json({ message: reply })
 }
 
+/**
+ * @desc Get all users
+ * @route GET /users
+ * @access Private
+ */
+const getAllUsers = async ( req, res ) => {
+  const users = await User.find().lean()
+  if (!users?.length) {
+    return res.status(400).json({ message: 'No users found' })
+  }
+  res.json(users)
+}
 
 module.exports = {
   getUser,
   updateUser,
   createUser,
-  deleteUser
+  deleteUser,
+  getAllUsers
 }
