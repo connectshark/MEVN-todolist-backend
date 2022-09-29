@@ -6,6 +6,7 @@ const path = require('path')
 const cors = require('cors')
 const corsOptions = require('./config/corsOptions')
 const cookieParser = require('cookie-parser')
+const credentials = require('./middleware/credentials')
 const connectDB = require('./config/dbConn')
 const mongoose = require('mongoose')
 const PORT = process.env.PORT || 3000
@@ -15,6 +16,7 @@ const errorHandler = require('./middleware/errorHandler')
 
 connectDB()
 
+app.use(credentials)
 app.use(cors(corsOptions))
 app.use(express.urlencoded({ extended: false }))
 app.use(logger)
