@@ -3,8 +3,9 @@ const mongoose = require('mongoose')
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
+    required: true
   },
-  line_id: {
+  password: {
     type: String,
     required: true
   },
@@ -16,6 +17,10 @@ const userSchema = new mongoose.Schema({
   update_at: {
     type: Date,
     default: Date.now
+  },
+  active: {
+    type: Boolean,
+    default: true
   }
 })
 

@@ -1,85 +1,126 @@
-const jwt = require('jsonwebtoken')
 const User = require('../models/User')
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
+
 
 /**
  * @desc Login
  * @route POST /auth
  * @access Public
  */
-const line = async (req, res) => {
-  const { code, state } = req.query
-  const URI = process.env.REDIRECT_URI
+const login = async (req, res) => {
+  const { username, password } = req.body
 
-  if (!code) {
-    return res.redirect(URI + `?error=true&message=未正確認證`)
+  if (!username || !password) {
+    return res.status(400).json({ message: 'All fields are required' })
   }
 
-  const fetch_token = await fetch('https://api.line.me/oauth2/v2.1/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: process.env.LINE_REDIRECT_URI,
-      client_id: process.env.LINE_CLIENT_ID,
-      client_secret: process.env.LINE_CLIENT_SECRET
-    })
-  })
-  const token_response = await fetch_token.json()
+  const foundUser = await User.findOne({ username }).exec()
 
-  const fetch_verify = await fetch(`https://api.line.me/oauth2/v2.1/verify`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      id_token: token_response.id_token,
-      client_id: process.env.LINE_CLIENT_ID
-    })
-  })
-  const { sub: userId, name, email } = await fetch_verify.json()
-
-  const user = await createUser({ line_id: userId, username: name })
-
-  if (user.success) {
-    const accessToken = jwt.sign(
-      {
-        userInfo: {
-          username: name,
-          email,
-          userId
-        }
-      },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: '15m' }
-    )
-    res.redirect(URI + `?access_token=${accessToken}&success=true`)
+  if (!foundUser || !foundUser.active) {
+    return res.status(401).json({ message: 'Unauthorized' })
   }
-  
+
+  const match = await bcrypt.compare(password, foundUser.password)
+
+  if (!match) {
+    return res.status(401).json({ message: 'Unauthorized' })
+  }
+
+  const accessToken = jwt.sign(
+    {
+      userInfo: {
+        username: foundUser.username,
+        id: foundUser._id
+      }
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: '15m' }
+  )
+
+  const refreshToken = jwt.sign(
+    { username: foundUser.username },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: '7d' }
+  )
+
+  res.cookie('jwt', refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  })
+
+  res.json({ accessToken })
 }
 
-const createUser = async ({ line_id, username }) => {
-  if (!line_id || !username) {
-    return { err: true, message: 'All fields are required' }
+/**
+ * @desc Refresh
+ * @route GET /auth/refresh
+ * @access Public - because access token has expired
+ */
+const refresh = async (req, res) => {
+  const cookies = req.cookies
+
+  if (!cookies?.jwt) {
+    return res.status(401).json({ message: 'Unauthorized' })
   }
 
-  const duplicate = await User.findOne({ line_id }).lean().exec()
+  const refreshToken = cookies.jwt
 
-  if (duplicate) {
-    return { success: true, id: user._id, message: `Duplicate user ${username}` }
+  jwt.verify(
+    refreshToken,
+    process.env.REFRESH_TOKEN_SECRET,
+    asyncHandler(async (err, decoded) => {
+      if (err) {
+        return res.status(403).json({ message: 'Forbidden' })
+      }
+
+      const foundUser = await User.findOne({ username: decoded.username }).exec()
+
+      if (!foundUser) {
+        return res.status(401).json({ message: 'Unauthorized' })
+      }
+
+      const accessToken = jwt.sign(
+        {
+          userInfo: {
+            username: foundUser.username,
+            id: foundUser._id
+          }
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: '15m' }
+      )
+
+      res.json({ accessToken })
+    })
+  )
+}
+
+/**
+ * @desc Logout
+ * @route POST /auth/logout
+ * @access Public - just to clear cookie if exists
+ */
+const logout = async (req, res) => {
+  const cookies = req.cookies
+
+  if (!cookies?.jwt) {
+    return res.status(204)
   }
 
-  const user = await User.create({ line_id, username })
-
-  if (user) {
-    return { success: true, message: `New user ${username} created`, id: user._id }
-  } else {
-    return { err: true, message: 'Invalid user data received' }
-  }
+  res.clearCookie('jwt', {
+    httpOnly: true,
+    sameSite: 'none',
+    secure: true
+  })
+  
+  res.json({ message: 'Cookie cleared' })
 }
 
 module.exports = {
-  line
+  login,
+  refresh,
+  logout
 }

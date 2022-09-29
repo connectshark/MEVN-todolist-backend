@@ -34,13 +34,13 @@ const createTask = async ( req, res ) => {
  * @access Private
  */
 const updateTask = async ( req, res ) => {
-  const { owner, content, id } = req.body
+  const { content, id } = req.body
 
-  if (!id || !content || !owner) {
+  if (!id || !content) {
     return res.status(400).json({ message: 'All fields are required' })
   }
 
-  const task = await Task.findById(id).where({ owner: owner }).exec()
+  const task = await Task.findById(id).exec()
 
   if (!task) {
     return res.status(400).json({ message: 'Task not found' })
